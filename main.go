@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Payload struct {
@@ -36,6 +39,22 @@ func main() {
 	}
 	fmt.Println(payloadInfo)
 
+	refreshToken, err := generateRefreshToken()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(refreshToken)
+}
+
+func generateRefreshToken() (string, error) {
+	refreshBytes := make([]byte, 128)
+	if _, err := rand.Read(refreshBytes); err != nil {
+		return "", err
+	}
+
+	refreshToken := base64.StdEncoding.EncodeToString(refreshBytes)
+	return refreshToken, nil
 }
 
 func getPayloadByToken(tokenString string) (*Payload, error) {
