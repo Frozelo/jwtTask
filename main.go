@@ -1,13 +1,24 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type DatabaseConfig struct {
+	Host   string
+	Port   string
+	User   string
+	DbName string
+}
 
 type Payload struct {
 	UserId   uint   `json:"userId"`
@@ -17,6 +28,35 @@ type Payload struct {
 }
 
 func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dbConfig := DatabaseConfig{
+		Host:   "localhost",
+		User:   "ivansizov",
+		Port:   "5432",
+		DbName: "jwttask",
+	}
+
+	connString := fmt.Sprintf(
+		"postgresql://%s@%s:%s/%s",
+		dbConfig.User,
+		dbConfig.Host,
+		dbConfig.Port,
+		dbConfig.DbName,
+	)
+
+	log.Printf("running db at port %s", dbConfig.Port)
+	pool, err := pgxpool.New(context.Background(), connString)
+	if err != nil {
+		log.Fatalf("cant create connection pool: %v\n", err)
+	}
+	defer pool.Close()
+
+	if err = pool.Ping(ctx); err != nil {
+		log.Fatal(err)
+	}
+
 	refreshToken, err := generateRefreshToken()
 	if err != nil {
 		panic(err)
