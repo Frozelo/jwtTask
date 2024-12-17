@@ -1,9 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 type DatabaseConfig struct {
@@ -15,20 +16,36 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-func LoadDatabaseConfig() (*DatabaseConfig, error) {
-	port, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
+type JWTConfig struct {
+	SecretKey string
+	Issuer    string
+}
+
+func LoadConfig() (*DatabaseConfig, *JWTConfig, error) {
+	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid DB_PORT: %v", err)
+		return nil, nil, errors.Wrap(err, "invalid DB_PORT")
 	}
 
-	return &DatabaseConfig{
+	dbConfig := &DatabaseConfig{
 		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     port,
+		Port:     dbPort,
 		User:     getEnv("DB_USER", "ivansizov"),
 		Password: getEnv("DB_PASSWORD", ""),
 		DbName:   getEnv("DB_NAME", "jwttask"),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
-	}, nil
+	}
+
+	jwtConfig := &JWTConfig{
+		SecretKey: getEnv("JWT_SECRET", ""),
+		Issuer:    getEnv("JWT_ISSUER", "authservice"),
+	}
+
+	if jwtConfig.SecretKey == "" {
+		return nil, nil, errors.New("JWT_SECRET environment variable is not set")
+	}
+
+	return dbConfig, jwtConfig, nil
 }
 
 func getEnv(key, defaultValue string) string {
