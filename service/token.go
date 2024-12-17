@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"log"
 	"time"
 
 	"github.com/Frozelo/jwtTask/models"
@@ -66,6 +67,49 @@ func (ts *TokenService) GenerateTokens(ctx context.Context, userId uuid.UUID, ip
 	}
 
 	return accessToken, refreshToken, nil
+}
+
+func (ts *TokenService) RefreshTokens(ctx context.Context, accessToken, refreshToken, ip string) (string, string, error) {
+	payload, err := ts.jwtService.ValidateToken(accessToken)
+	if err != nil {
+		return "", "", errors.Wrap(err, "invalid access token")
+	}
+
+	userUUID, err := uuid.Parse(payload.UserID)
+	if err != nil {
+		return "", "", errors.Wrap(err, "invalid user ID in token")
+	}
+
+	session, err := ts.tokenRepo.FindTokenSession(ctx, userUUID, payload.Session)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to find token session")
+	}
+
+	if session.Used {
+		return "", "", errors.New("refresh token has already been used")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(session.RefreshTokenHash), []byte(refreshToken))
+	if err != nil {
+		return "", "", errors.Wrap(err, "invalid refresh token")
+	}
+
+	if session.IP != ip {
+		log.Println("sending message to user email")
+	}
+
+	err = ts.tokenRepo.MarkAsUsed(ctx, session.Id)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to mark token session as used")
+	}
+
+	newAccessToken, newRefreshToken, err := ts.GenerateTokens(ctx, userUUID, ip)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to generate new tokens")
+	}
+
+	return newAccessToken, newRefreshToken, nil
+
 }
 
 func generateRefreshToken() (string, error) {
