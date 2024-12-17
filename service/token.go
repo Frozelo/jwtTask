@@ -1,63 +1,79 @@
 package service
 
 import (
-	"errors"
+	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/Frozelo/jwtTask/models"
+	"github.com/Frozelo/jwtTask/pkg/jwt"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
-type JWTService struct {
-	secretKey string
-	issuer    string
+type UserRepo interface {
+	FindById(ctx context.Context, userId uuid.UUID) (*models.User, error)
 }
 
-type Payload struct {
-	UserID  string `json:"user_id"`
-	IP      string `json:"ip"`
-	Session string `json:"session_id"`
-	jwt.RegisteredClaims
+type TokenRepo interface {
+	Save(ctx context.Context, session models.TokenSession) error
+	FindTokenSession(ctx context.Context, userID uuid.UUID, sessionID string) (*models.TokenSession, error)
+	MarkUsed(ctx context.Context, id int64) error
 }
 
-func NewJWTService(secretKey, issuer string) *JWTService {
-	return &JWTService{
-		secretKey: secretKey,
-		issuer:    issuer,
-	}
+type TokenService struct {
+	jwtService *jwt.JWTService
+	userRepo   UserRepo
+	tokenRepo  TokenRepo
 }
 
-func (js *JWTService) GenerateToken(userId, ip, session string) (string, error) {
-	payload := Payload{
-		UserID:  userId,
-		IP:      ip,
-		Session: session,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    js.issuer,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, payload)
-	return token.SignedString([]byte(js.secretKey))
+func NewTokenService(jwtService *jwt.JWTService, userRepo UserRepo, tokenRepo TokenRepo) *TokenService {
+	return &TokenService{jwtService: jwtService, userRepo: userRepo, tokenRepo: tokenRepo}
 }
 
-func (j *JWTService) ValidateToken(tokenString string) (*Payload, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Payload{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(j.secretKey), nil
-	})
+func (ts *TokenService) GenerateTokens(ctx context.Context, userId uuid.UUID, ip string) (string, string, error) {
+	sessionId := uuid.New().String()
 
+	accessToken, err := ts.jwtService.GenerateToken(userId.String(), ip, sessionId)
 	if err != nil {
-		return nil, err
+		return "", "", errors.Wrap(err, "failed to generate access token")
 	}
 
-	claims, ok := token.Claims.(*Payload)
-	if !ok || !token.Valid {
-		return nil, errors.New("invalid token")
+	refreshToken, err := generateRefreshToken()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to generate refresh token")
 	}
 
-	return claims, nil
+	hashedRefresh, err := bcrypt.GenerateFromPassword([]byte(refreshToken), bcrypt.DefaultCost)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to hash refresh token")
+	}
+
+	session := models.TokenSession{
+		UserId:           userId,
+		RefreshTokenHash: string(hashedRefresh),
+		IP:               ip,
+		SessionId:        sessionId,
+		CreatedAt:        time.Now(),
+		ExpiresAt:        time.Now().Add(24 * time.Hour),
+		Used:             false,
+	}
+
+	if err := ts.tokenRepo.Save(ctx, session); err != nil {
+		return "", "", errors.Wrap(err, "failed to create token session")
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func generateRefreshToken() (string, error) {
+	refreshBytes := make([]byte, 32)
+	if _, err := rand.Read(refreshBytes); err != nil {
+		return "", err
+	}
+
+	refreshToken := base64.StdEncoding.EncodeToString(refreshBytes)
+	return refreshToken, nil
 }
