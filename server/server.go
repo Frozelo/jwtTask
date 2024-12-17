@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultAddr            = "0.0.0.0:8080"
+	defaultAddr            = "localhost:8080"
 	defaultShutdownTimeout = 3 * time.Second
 )
 
@@ -30,6 +30,8 @@ func New(handler http.Handler) *Server {
 		notify:          notifyChan,
 		shutDownTimeout: defaultShutdownTimeout,
 	}
+
+	s.start()
 
 	return &s
 }

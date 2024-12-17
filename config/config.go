@@ -37,7 +37,7 @@ func LoadConfig() (*DatabaseConfig, *JWTConfig, error) {
 	}
 
 	jwtConfig := &JWTConfig{
-		SecretKey: getEnv("JWT_SECRET", ""),
+		SecretKey: getEnv("JWT_SECRET", "supa-dupa-secret-key"),
 		Issuer:    getEnv("JWT_ISSUER", "authservice"),
 	}
 

@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
+	"log"
+	"net"
 	"net/http"
 
 	"github.com/Frozelo/jwtTask/service"
@@ -18,7 +20,6 @@ func NewHandler(tokenService *service.TokenService) *Handler {
 
 type IssueTokensRequest struct {
 	UserId string `json:"user_id"`
-	Ip     string `json:"ip"`
 }
 
 type IssueTokensResponse struct {
@@ -38,9 +39,18 @@ func (h *Handler) IssueTokens(w http.ResponseWriter, r *http.Request) {
 	userUUID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		http.Error(w, "Invalid user_id format", http.StatusBadRequest)
+		return
 	}
 
-	accessToken, refreshToken, err := h.TokenService.GenerateTokens(ctx, userUUID, req.Ip)
+	clientIp := getClientIp(r)
+	if clientIp == "" {
+		http.Error(w, "Unable to determine client IP", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println(clientIp)
+
+	accessToken, refreshToken, err := h.TokenService.GenerateTokens(ctx, userUUID, clientIp)
 	if err != nil {
 		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
 		return
@@ -53,4 +63,13 @@ func (h *Handler) IssueTokens(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 
+}
+
+func getClientIp(r *http.Request) string {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+
+	if err != nil {
+		return ""
+	}
+	return ip
 }

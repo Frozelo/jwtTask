@@ -1,102 +1,63 @@
 package main
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"fmt"
 	"log"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/Frozelo/jwtTask/config"
+	"github.com/Frozelo/jwtTask/controllers"
+	"github.com/Frozelo/jwtTask/pkg/jwt"
+	"github.com/Frozelo/jwtTask/repository"
+	"github.com/Frozelo/jwtTask/server"
+	"github.com/Frozelo/jwtTask/service"
+	"github.com/Frozelo/jwtTask/storage"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
-type DatabaseConfig struct {
-	Host   string
-	Port   string
-	User   string
-	DbName string
-}
-
-type Payload struct {
-	UserId   uint   `json:"userId"`
-	Email    string `json:"email"`
-	ClientIp string `json:"clientIp"`
-	jwt.RegisteredClaims
-}
-
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	dbConfig := DatabaseConfig{
-		Host:   "localhost",
-		User:   "ivansizov",
-		Port:   "5432",
-		DbName: "jwttask",
-	}
-
-	connString := fmt.Sprintf(
-		"postgresql://%s@%s:%s/%s",
-		dbConfig.User,
-		dbConfig.Host,
-		dbConfig.Port,
-		dbConfig.DbName,
-	)
-
-	log.Printf("running db at port %s", dbConfig.Port)
-	pool, err := pgxpool.New(context.Background(), connString)
+	dbConfig, jwtConfig, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("cant create connection pool: %v\n", err)
-	}
-	defer pool.Close()
-
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatalf("error while loading config &v", err)
 	}
 
-	refreshToken, err := generateRefreshToken()
-	if err != nil {
-		panic(err)
-	}
-	hashRefreshToken, err := cryptRefreshToken(refreshToken)
-	if err != nil {
-		panic(err)
+	testUuid := uuid.New()
+	log.Println(testUuid)
+
+	dbPool, err := storage.New(dbConfig)
+	defer dbPool.Close()
+
+	userRepo := repository.NewUserRepository(dbPool)
+	tokenRepo := repository.NewTokenRepository(dbPool)
+
+	jwtService := jwt.NewJWTService(jwtConfig.SecretKey, jwtConfig.Issuer)
+	tokenService := service.NewTokenService(jwtService, userRepo, tokenRepo)
+
+	handler := controllers.NewHandler(tokenService)
+
+	r := mux.NewRouter()
+
+	r.HandleFunc("/issue", handler.IssueTokens).Methods("POST")
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	log.Println("startting new servet at port 8080")
+	httpServer := server.New(r)
+
+	select {
+	case s := <-interrupt:
+		log.Printf("app - Run - signal: " + s.String())
+
+	case err = <-httpServer.Notify():
+		log.Printf("app - Run - httpServer.Notify: %w", err)
+
+		err = httpServer.Shutdown()
+		if err != nil {
+			log.Printf("app - Run - httpServer.Shutdown: %w", err)
+		}
 	}
 
-	fmt.Printf("the standart refresh token is %s, the crypt refresh token is %s", refreshToken, hashRefreshToken)
-}
-
-func generateRefreshToken() (string, error) {
-	refreshBytes := make([]byte, 32)
-	if _, err := rand.Read(refreshBytes); err != nil {
-		return "", err
-	}
-
-	refreshToken := base64.StdEncoding.EncodeToString(refreshBytes)
-	return refreshToken, nil
-}
-
-func cryptRefreshToken(refreshToken string) (string, error) {
-	hashRefreshToken, err := bcrypt.GenerateFromPassword([]byte(refreshToken), bcrypt.DefaultCost)
-	if err != nil {
-		return "", nil
-	}
-
-	return string(hashRefreshToken), nil
-}
-
-func getPayloadByToken(tokenString string) (*Payload, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Payload{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte("very-very-secret"), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if payload, ok := token.Claims.(*Payload); ok && token.Valid {
-		return payload, nil
-	}
-	return nil, fmt.Errorf("invalid token")
 }

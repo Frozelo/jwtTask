@@ -20,7 +20,7 @@ type UserRepo interface {
 type TokenRepo interface {
 	Save(ctx context.Context, session models.TokenSession) error
 	FindTokenSession(ctx context.Context, userID uuid.UUID, sessionID string) (*models.TokenSession, error)
-	MarkUsed(ctx context.Context, id int64) error
+	MarkAsUsed(ctx context.Context, id int64) error
 }
 
 type TokenService struct {
