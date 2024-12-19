@@ -9,6 +9,7 @@ import (
 
 	"github.com/Frozelo/jwtTask/internal/config"
 	"github.com/Frozelo/jwtTask/internal/controllers"
+	"github.com/Frozelo/jwtTask/internal/middleware"
 	"github.com/Frozelo/jwtTask/internal/repository"
 	"github.com/Frozelo/jwtTask/internal/server"
 	"github.com/Frozelo/jwtTask/internal/service"
@@ -19,6 +20,7 @@ import (
 
 func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelInfo,
 		AddSource: true,
 	}))
 
@@ -29,7 +31,7 @@ func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
 		logger.Error("error while connecting to db %v", "error", err)
 		os.Exit(1)
 	}
-	defer dbPool.Close()
+
 	slog.Info("connected to db at user", "user", dbConfig.User)
 
 	userRepo := repository.NewUserRepository(dbPool)
@@ -44,6 +46,8 @@ func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
 
 	r.HandleFunc("/refresh", handler.RefreshTokens).Methods("POST")
 	r.HandleFunc("/issue", handler.IssueTokens).Methods("POST")
+
+	r.Use(middleware.LoggingMiddleware(logger))
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
