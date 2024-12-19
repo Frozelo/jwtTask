@@ -30,15 +30,15 @@ func LoadConfig() (*DatabaseConfig, *JWTConfig, error) {
 	dbConfig := &DatabaseConfig{
 		Host:     getEnv("POSTGRES_HOST", "localhost"),
 		Port:     dbPort,
-		User:     getEnv("POSTGRES_USER", "ivansizov"),
+		User:     getEnv("POSTGRES_USER", "postgres"),
 		Password: getEnv("POSTGRES_PASSWORD", ""),
-		DbName:   getEnv("POSTGRES_PASSWORD_NAME", "jwttask"),
+		DbName:   getEnv("POSTGRES_DATABASE_NAME", "jwttask"),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 
 	jwtConfig := &JWTConfig{
 		SecretKey: getEnv("JWT_SECRET", "supa-dupa-secret-key"),
-		Issuer:    getEnv("JWT_ISSUER", "authservice"),
+		Issuer:    getEnv("JWT_ISSUER", "tokenservice"),
 	}
 
 	if jwtConfig.SecretKey == "" {

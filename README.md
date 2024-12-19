@@ -44,3 +44,50 @@ Ensure you have the following installed:
 git clone https://github.com/your-repo/jwt-auth-service.git
 cd jwtTask
 ```
+
+### **2. Env configuration**
+
+Create a `.env` file in the root directory and add the following environment variables:
+
+```env
+POSTGRES_HOST        # Database host (e.g., 'localhost' or 'db' for Docker)
+POSTGRES_USER        # Database username
+POSTGRES_PASSWORD    # Database password
+POSTGRES_DB          # Name of the database
+PORT=8080            # Port on which the application runs
+DB_SSLMODE           # SSL mode for database connection (e.g., 'disable', 'require')
+JWT_SECRET           # Secret key used for signing JWT tokens
+JWT_ISSUER           # Issuer field included in JWT tokens
+```
+
+### **3. Build and run the Docker containers**
+
+```bash
+docker-compose up --build
+```
+
+### **4. Access the application**
+
+The application will be running on `http://localhost:8080` (by default).
+You can use Swagger UI to interact with the API by visiting `http://localhost:8080/swagger/index.html`.
+
+Or using curl:
+
+**Issue token**
+```bash
+curl -X POST http://localhost:8080/issue \
+-H "Content-Type: application/json" \
+-d '{
+    "user_id": "your-uuid"
+}'
+```
+
+**Refresh token**
+```bash
+curl -X POST http://localhost:8080/refresh \
+-H "Content-Type: application/json" \
+-d '{
+    "access_token": "your-access-token",
+    "refresh_token": "your-refresh-token"
+}'
+```
