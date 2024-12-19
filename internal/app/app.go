@@ -36,7 +36,7 @@ func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
 	tokenRepo := repository.NewTokenRepository(dbPool)
 
 	jwtService := jwt.NewJWTService(jwtConfig.SecretKey, jwtConfig.Issuer)
-	tokenService := service.NewTokenService(jwtService, userRepo, tokenRepo)
+	tokenService := service.NewTokenService(jwtService, userRepo, tokenRepo, logger)
 
 	handler := controllers.NewHandler(tokenService)
 

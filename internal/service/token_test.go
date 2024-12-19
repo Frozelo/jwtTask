@@ -54,6 +54,7 @@ func (m *MockTokenRepo) MarkAsUsed(ctx context.Context, id int64) error {
 
 func setupLogger() *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelWarn,
 		AddSource: true,
 	}))
 }
