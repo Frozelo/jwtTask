@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"log/slog"
 	"time"
 
 	"github.com/Frozelo/jwtTask/internal/models"
@@ -24,9 +25,11 @@ type TokenRepo interface {
 }
 
 type TokenService struct {
-	jwtService *jwt.JWTService
-	userRepo   UserRepo
-	tokenRepo  TokenRepo
+	jwtService  *jwt.JWTService
+	mailService *MailService
+	userRepo    UserRepo
+	tokenRepo   TokenRepo
+	logger      *slog.Logger
 }
 
 func NewTokenService(jwtService *jwt.JWTService, userRepo UserRepo, tokenRepo TokenRepo) *TokenService {
@@ -98,7 +101,12 @@ func (ts *TokenService) RefreshTokens(ctx context.Context, accessToken, refreshT
 	}
 
 	if session.IP != ip {
-		return "", "", errors.New("IP address mismatch")
+		user, err := ts.userRepo.FindById(ctx, userUUID)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to find user by ID")
+		}
+
+		ts.mailService.SendWarningMessage(user.Email)
 	}
 
 	err = ts.tokenRepo.MarkAsUsed(ctx, session.Id)
