@@ -41,7 +41,9 @@ It`s like SSO but mini version. Working with JWT tokens and refresh tokens.
 
 Ensure you have the following installed:
 
-- Docker
+- Go 1.18+
+- PostgreSQL 15+
+- Docker:
 
 ---
 
@@ -77,6 +79,8 @@ docker-compose up --build
 
 You don't need to create the database manually. The application will create the necessary tables on startup. By initializing the database, the application will also create a default mock users
 
+**Database schema**
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -96,6 +100,9 @@ CREATE TABLE IF NOT EXISTS token_sessions (
     used BOOLEAN NOT NULL DEFAULT FALSE
 );
 ```
+
+**Default mock users**
+
 ```sql
 INSERT INTO
     users (id, email)
