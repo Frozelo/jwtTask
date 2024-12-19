@@ -84,6 +84,10 @@ func (ts *TokenService) RefreshTokens(ctx context.Context, accessToken, refreshT
 		return "", "", errors.Wrap(err, "failed to find token session")
 	}
 
+	if time.Now().After(session.ExpiresAt) {
+		return "", "", errors.New("token session has expired")
+	}
+
 	if session.Used {
 		return "", "", errors.New("refresh token has already been used")
 	}
