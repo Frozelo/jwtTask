@@ -50,7 +50,7 @@ Ensure you have the following installed:
 ### **1. Clone the repository**
 
 ```bash
-git clone https://github.com/your-repo/jwt-auth-service.git
+git clone https://github.com/Frozelo/jwtTask.git
 cd jwtTask
 ```
 
@@ -73,6 +73,53 @@ JWT_ISSUER           # Issuer field included in JWT tokens
 
 ```bash
 docker-compose up --build
+```
+
+You don't need to create the database manually. The application will create the necessary tables on startup. By initializing the database, the application will also create a default mock users
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+    email TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS token_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users (id) ON DELETE CASCADE,
+    refresh_hash TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    session_id TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW (),
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE
+);
+```
+```sql
+INSERT INTO
+    users (id, email)
+VALUES
+    (
+        'f7b3b1b4-3b3b-4b3b-8b3b-3b3b3b3b3b3b',
+        'testgmail@gmail.com'
+    ) ON CONFLICT DO NOTHING;
+
+INSERT INTO
+    users (id, email)
+VALUES
+    (
+        'c7190d84-76f7-4088-a2fa-10c55cb0bf68',
+        'testmail@mail.ru'
+    ) ON CONFLICT DO NOTHING;
+
+INSERT INTO
+    users (id, email)
+VALUES
+    (
+        '3e60628a-7c9c-464f-97fe-e409727cdfba',
+        'testyandex@yandex.ru'
+    ) ON CONFLICT DO NOTHING;
 ```
 
 ### **4. Access the application**
