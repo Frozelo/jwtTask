@@ -24,6 +24,15 @@ It`s like SSO but mini version. Working with JWT tokens and refresh tokens.
 5. **Configurable**:
    - Environment variables control database and JWT configuration.
 
+6. **Swagger UI**:
+   - API documentation is available through Swagger UI.
+
+7. **Logging**:
+    - Logs are written to the console in json format.
+
+8. **Testing**:
+    - Unit tests are included for the service layer.
+
 ---
 
 ## **Getting Started**
@@ -54,7 +63,7 @@ POSTGRES_HOST        # Database host (e.g., 'localhost' or 'db' for Docker)
 POSTGRES_USER        # Database username
 POSTGRES_PASSWORD    # Database password
 POSTGRES_DB          # Name of the database
-PORT=8080            # Port on which the application runs
+PORT                 # Port on which the application runs
 DB_SSLMODE           # SSL mode for database connection (e.g., 'disable', 'require')
 JWT_SECRET           # Secret key used for signing JWT tokens
 JWT_ISSUER           # Issuer field included in JWT tokens
