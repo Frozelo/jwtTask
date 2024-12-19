@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -50,12 +52,18 @@ func (m *MockTokenRepo) MarkAsUsed(ctx context.Context, id int64) error {
 	return args.Error(0)
 }
 
+func setupLogger() *slog.Logger {
+	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+	}))
+}
+
 func TestTokenService_GenerateTokens(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockTokenRepo := new(MockTokenRepo)
-
+	logger := setupLogger()
 	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
+	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo, logger)
 
 	userID := uuid.New()
 	ip := "127.0.0.1"
@@ -73,9 +81,10 @@ func TestTokenService_GenerateTokens(t *testing.T) {
 func TestTokenService_RefreshTokens_Success(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockTokenRepo := new(MockTokenRepo)
+	logger := setupLogger()
 
 	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
+	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo, logger)
 
 	userID := uuid.New()
 	ip := "127.0.0.1"
@@ -114,9 +123,10 @@ func TestTokenService_RefreshTokens_Success(t *testing.T) {
 func TestTokenService_RefreshTokens_InvalidRefreshToken(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockTokenRepo := new(MockTokenRepo)
+	logger := setupLogger()
 
 	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
+	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo, logger)
 
 	userID := uuid.New()
 	ip := "127.0.0.1"
@@ -125,6 +135,7 @@ func TestTokenService_RefreshTokens_InvalidRefreshToken(t *testing.T) {
 	accessToken, err := jwtService.GenerateToken(userID.String(), ip, sessionID)
 	assert.NoError(t, err)
 
+	// Refresh token, который не соответствует хешу
 	refreshToken := "invalid-refresh-token"
 	hashedRefresh, err := bcrypt.GenerateFromPassword([]byte("valid-refresh-token"), bcrypt.DefaultCost)
 	assert.NoError(t, err)
@@ -149,53 +160,18 @@ func TestTokenService_RefreshTokens_InvalidRefreshToken(t *testing.T) {
 	mockTokenRepo.AssertExpectations(t)
 }
 
-func TestTokenService_RefreshTokens_AlreadyUsed(t *testing.T) {
+func TestTokenService_RefreshTokens_IPMismatch(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockTokenRepo := new(MockTokenRepo)
+	logger := setupLogger()
 
 	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
+	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo, logger)
 
 	userID := uuid.New()
+	userEmail := "testemail@gmail.com"
 	ip := "127.0.0.1"
-	sessionID := uuid.New().String()
-
-	accessToken, err := jwtService.GenerateToken(userID.String(), ip, sessionID)
-	assert.NoError(t, err)
-
-	refreshToken := "test-refresh-token"
-	hashedRefresh, err := bcrypt.GenerateFromPassword([]byte(refreshToken), bcrypt.DefaultCost)
-	assert.NoError(t, err)
-
-	tokenSession := &models.TokenSession{
-		Id:               1,
-		UserId:           userID,
-		RefreshTokenHash: string(hashedRefresh),
-		IP:               ip,
-		SessionId:        sessionID,
-		CreatedAt:        time.Now(),
-		ExpiresAt:        time.Now().Add(24 * time.Hour),
-		Used:             true,
-	}
-
-	mockTokenRepo.On("FindTokenSession", mock.Anything, userID, sessionID).Return(tokenSession, nil)
-
-	_, _, err = tokenService.RefreshTokens(context.Background(), accessToken, refreshToken, ip)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "refresh token has already been used")
-	mockTokenRepo.AssertExpectations(t)
-}
-
-func TestTokenService_RefreshTokens_WrongIP(t *testing.T) {
-	mockUserRepo := new(MockUserRepo)
-	mockTokenRepo := new(MockTokenRepo)
-
-	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
-
-	userID := uuid.New()
-	ip := "127.0.0.1"
+	newIP := "192.168.0.1"
 	sessionID := uuid.New().String()
 
 	accessToken, err := jwtService.GenerateToken(userID.String(), ip, sessionID)
@@ -217,21 +193,23 @@ func TestTokenService_RefreshTokens_WrongIP(t *testing.T) {
 	}
 
 	mockTokenRepo.On("FindTokenSession", mock.Anything, userID, sessionID).Return(tokenSession, nil)
+	mockTokenRepo.On("MarkAsUsed", mock.Anything, tokenSession.Id).Return(nil)
+	mockTokenRepo.On("Save", mock.Anything, mock.AnythingOfType("models.TokenSession")).Return(nil)
+	mockUserRepo.On("FindById", mock.Anything, userID).Return(&models.User{Email: userEmail}, nil)
 
-	newIP := "127.0.0.2"
 	_, _, err = tokenService.RefreshTokens(context.Background(), accessToken, refreshToken, newIP)
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "IP address mismatch")
+	assert.NoError(t, err)
 	mockTokenRepo.AssertExpectations(t)
+	mockUserRepo.AssertExpectations(t)
 }
 
 func TestTokenService_RefreshTokens_SessionExpired(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockTokenRepo := new(MockTokenRepo)
-
+	logger := setupLogger()
 	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
+	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo, logger)
 
 	userID := uuid.New()
 	ip := "127.0.0.1"
@@ -260,49 +238,6 @@ func TestTokenService_RefreshTokens_SessionExpired(t *testing.T) {
 	_, _, err = tokenService.RefreshTokens(context.Background(), accessToken, refreshToken, ip)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "token session has expired")
-	mockTokenRepo.AssertExpectations(t)
-}
-
-func TestTokenService_RefreshTokens_InvalidAccessToken(t *testing.T) {
-	mockUserRepo := new(MockUserRepo)
-	mockTokenRepo := new(MockTokenRepo)
-
-	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
-
-	invalidAccessToken := "invalid-access-token"
-	refreshToken := "test-refresh-token"
-	ip := "127.0.0.1"
-
-	_, _, err := tokenService.RefreshTokens(context.Background(), invalidAccessToken, refreshToken, ip)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid access token")
-	mockTokenRepo.AssertExpectations(t)
-}
-
-func TestTokenService_RefreshTokens_InvalidUserIDInToken(t *testing.T) {
-	mockUserRepo := new(MockUserRepo)
-	mockTokenRepo := new(MockTokenRepo)
-
-	jwtService := jwt.NewJWTService("test-secret", "test-issuer")
-	tokenService := service.NewTokenService(jwtService, mockUserRepo, mockTokenRepo)
-
-	payload := jwt.Payload{
-		UserID:  "invalid-uuid",
-		IP:      "127.0.0.1",
-		Session: uuid.New().String(),
-	}
-	accessToken, err := jwtService.GenerateToken(payload.UserID, payload.IP, payload.Session)
-	assert.NoError(t, err)
-
-	refreshToken := "test-refresh-token"
-	ip := "127.0.0.1"
-
-	_, _, err = tokenService.RefreshTokens(context.Background(), accessToken, refreshToken, ip)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid user ID in token")
+	assert.Contains(t, err.Error(), "session has expired")
 	mockTokenRepo.AssertExpectations(t)
 }

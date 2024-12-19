@@ -25,32 +25,35 @@ type TokenRepo interface {
 }
 
 type TokenService struct {
-	jwtService  *jwt.JWTService
-	mailService *MailService
-	userRepo    UserRepo
-	tokenRepo   TokenRepo
-	logger      *slog.Logger
+	jwtService *jwt.JWTService
+	userRepo   UserRepo
+	tokenRepo  TokenRepo
+	logger     *slog.Logger
 }
 
-func NewTokenService(jwtService *jwt.JWTService, userRepo UserRepo, tokenRepo TokenRepo) *TokenService {
-	return &TokenService{jwtService: jwtService, userRepo: userRepo, tokenRepo: tokenRepo}
+func NewTokenService(jwtService *jwt.JWTService, userRepo UserRepo, tokenRepo TokenRepo, logger *slog.Logger) *TokenService {
+	return &TokenService{jwtService: jwtService, userRepo: userRepo, tokenRepo: tokenRepo, logger: logger}
 }
 
 func (ts *TokenService) GenerateTokens(ctx context.Context, userId uuid.UUID, ip string) (string, string, error) {
+	ts.logger.Info("Generating tokens", "userId", userId, "ip", ip)
 	sessionId := uuid.New().String()
 
 	accessToken, err := ts.jwtService.GenerateToken(userId.String(), ip, sessionId)
 	if err != nil {
+		ts.logger.Error("Failed to generate access token", "error", err)
 		return "", "", errors.Wrap(err, "failed to generate access token")
 	}
 
 	refreshToken, err := generateRefreshToken()
 	if err != nil {
+		ts.logger.Error("Failed to generate refresh token", "error", err)
 		return "", "", errors.Wrap(err, "failed to generate refresh token")
 	}
 
 	hashedRefresh, err := bcrypt.GenerateFromPassword([]byte(refreshToken), bcrypt.DefaultCost)
 	if err != nil {
+		ts.logger.Error("Failed to hash refresh token", "error", err)
 		return "", "", errors.Wrap(err, "failed to hash refresh token")
 	}
 
@@ -65,60 +68,74 @@ func (ts *TokenService) GenerateTokens(ctx context.Context, userId uuid.UUID, ip
 	}
 
 	if err := ts.tokenRepo.Save(ctx, session); err != nil {
+		ts.logger.Error("Failed to save token session", "error", err)
 		return "", "", errors.Wrap(err, "failed to create token session")
 	}
 
+	ts.logger.Info("Tokens generated successfully", "userId", userId)
 	return accessToken, refreshToken, nil
 }
 
 func (ts *TokenService) RefreshTokens(ctx context.Context, accessToken, refreshToken, ip string) (string, string, error) {
+	ts.logger.Info("Refreshing tokens", "ip", ip)
+
 	payload, err := ts.jwtService.ValidateToken(accessToken)
 	if err != nil {
+		ts.logger.Error("Invalid access token", "error", err)
 		return "", "", errors.Wrap(err, "invalid access token")
 	}
 
 	userUUID, err := uuid.Parse(payload.UserID)
 	if err != nil {
+		ts.logger.Error("Invalid user ID in token", "error", err)
 		return "", "", errors.Wrap(err, "invalid user ID in token")
 	}
 
 	session, err := ts.tokenRepo.FindTokenSession(ctx, userUUID, payload.Session)
 	if err != nil {
+		ts.logger.Error("Failed to find token session", "error", err)
 		return "", "", errors.Wrap(err, "failed to find token session")
 	}
 
 	if time.Now().After(session.ExpiresAt) {
+		ts.logger.Warn("Token session has expired", "userId", userUUID)
 		return "", "", errors.New("token session has expired")
 	}
 
 	if session.Used {
+		ts.logger.Warn("Refresh token already used", "userId", userUUID)
 		return "", "", errors.New("refresh token has already been used")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(session.RefreshTokenHash), []byte(refreshToken))
 	if err != nil {
+		ts.logger.Error("Invalid refresh token", "error", err)
 		return "", "", errors.Wrap(err, "invalid refresh token")
 	}
 
 	if session.IP != ip {
+		ts.logger.Warn("IP address mismatch", "userId", userUUID)
 		user, err := ts.userRepo.FindById(ctx, userUUID)
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to find user by ID")
 		}
 
-		ts.mailService.SendWarningMessage(user.Email)
+		ts.logger.Info("Warn messga to user", "userId", userUUID, "email", user.Email, "newIP", ip, "oldIp", session.IP)
 	}
 
 	err = ts.tokenRepo.MarkAsUsed(ctx, session.Id)
 	if err != nil {
+		ts.logger.Error("Failed to mark token session as used", "error", err)
 		return "", "", errors.Wrap(err, "failed to mark token session as used")
 	}
 
 	newAccessToken, newRefreshToken, err := ts.GenerateTokens(ctx, userUUID, ip)
 	if err != nil {
+		ts.logger.Error("Failed to generate new tokens", "error", err)
 		return "", "", errors.Wrap(err, "failed to generate new tokens")
 	}
 
+	ts.logger.Info("Tokens refreshed successfully", "userId", userUUID)
 	return newAccessToken, newRefreshToken, nil
 
 }
