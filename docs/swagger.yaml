@@ -1,0 +1,92 @@
+definitions:
+  controllers.IssueTokensRequest:
+    properties:
+      user_id:
+        type: string
+    type: object
+  controllers.IssueTokensResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  controllers.RefreshTokensRequest:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  controllers.RefreshTokensResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /issue:
+    post:
+      consumes:
+      - application/json
+      description: Issues a new access token and a refresh token for the given user_id.
+      parameters:
+      - description: User ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.IssueTokensRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.IssueTokensResponse'
+        "400":
+          description: Invalid request payload or invalid user_id format
+          schema:
+            type: string
+        "500":
+          description: Failed to generate tokens
+          schema:
+            type: string
+      summary: Issue JWT tokens
+      tags:
+      - tokens
+  /refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes the access token using a valid refresh token. If the
+        IP changes, a warning is logged.
+      parameters:
+      - description: Tokens
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RefreshTokensRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.RefreshTokensResponse'
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+        "401":
+          description: Invalid or expired tokens
+          schema:
+            type: string
+      summary: Refresh JWT tokens
+      tags:
+      - tokens
+swagger: "2.0"

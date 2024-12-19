@@ -41,7 +41,7 @@ It`s like SSO but mini version. Working with JWT tokens and refresh tokens.
 
 Ensure you have the following installed:
 
-- Go 1.18+
+- Go 1.16+
 - PostgreSQL 15+
 - Docker:
 

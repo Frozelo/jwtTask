@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/Frozelo/jwtTask/docs"
 	"github.com/Frozelo/jwtTask/internal/config"
 	"github.com/Frozelo/jwtTask/internal/controllers"
 	"github.com/Frozelo/jwtTask/internal/middleware"
@@ -16,6 +17,7 @@ import (
 	"github.com/Frozelo/jwtTask/internal/storage"
 	"github.com/Frozelo/jwtTask/pkg/jwt"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
@@ -46,6 +48,7 @@ func Run(dbConfig *config.DatabaseConfig, jwtConfig *config.JWTConfig) {
 
 	r.HandleFunc("/refresh", handler.RefreshTokens).Methods("POST")
 	r.HandleFunc("/issue", handler.IssueTokens).Methods("POST")
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler).Methods("GET")
 
 	r.Use(middleware.LoggingMiddleware(logger))
 
