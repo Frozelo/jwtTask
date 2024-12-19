@@ -154,3 +154,17 @@ curl -X POST http://localhost:8080/refresh \
     "refresh_token": "your-refresh-token"
 }'
 ```
+
+### **5. Logs preview**
+
+I use the 'slog' JSON logger. For better json view I reccomend to use 'jq' tool.
+
+```bash
+docker logs container id | jq
+```
+
+or
+
+```bash
+go run main.go | jq
+```
