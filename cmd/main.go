@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/Frozelo/jwtTask/inernal/app"
-	"github.com/Frozelo/jwtTask/inernal/config"
+	"github.com/Frozelo/jwtTask/internal/app"
+	"github.com/Frozelo/jwtTask/internal/config"
 )
 
 func main() {
