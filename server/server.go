@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultAddr            = "localhost:8080"
+	defaultAddr            = "0.0.0.0:8080"
 	defaultShutdownTimeout = 3 * time.Second
 )
 

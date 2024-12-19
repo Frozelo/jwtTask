@@ -64,7 +64,7 @@ func (tr *TokenRepository) FindTokenSession(ctx context.Context, userID uuid.UUI
 }
 
 func (tr *TokenRepository) MarkAsUsed(ctx context.Context, id int64) error {
-	query := `UPDATE token_seesion SET used = TRUE WHERE id = $1`
+	query := `UPDATE token_sessions SET used = TRUE WHERE id = $1`
 
 	_, err := tr.pool.Exec(ctx, query, id)
 	if err != nil {

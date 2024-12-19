@@ -27,6 +27,16 @@ type IssueTokensResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type RefreshTokensRequest struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshTokensResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 func (h *Handler) IssueTokens(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -62,7 +72,28 @@ func (h *Handler) IssueTokens(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
 
+func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
+	var req RefreshTokensRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	clientIp := getClientIp(r)
+	newAccessToken, newRefreshToken, err := h.TokenService.RefreshTokens(r.Context(), req.AccessToken, req.RefreshToken, clientIp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	resp := RefreshTokensResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func getClientIp(r *http.Request) string {

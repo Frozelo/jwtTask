@@ -22,17 +22,17 @@ type JWTConfig struct {
 }
 
 func LoadConfig() (*DatabaseConfig, *JWTConfig, error) {
-	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
+	dbPort, err := strconv.Atoi(getEnv("POSTGRES_PORT", "5432"))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "invalid DB_PORT")
 	}
 
 	dbConfig := &DatabaseConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
+		Host:     getEnv("POSTGRES_HOST", "db"),
 		Port:     dbPort,
-		User:     getEnv("DB_USER", "ivansizov"),
-		Password: getEnv("DB_PASSWORD", ""),
-		DbName:   getEnv("DB_NAME", "jwttask"),
+		User:     getEnv("POSTGRES_USER", "ivansizov"),
+		Password: getEnv("POSTGRES_PASSWORD", ""),
+		DbName:   getEnv("POSTGRES_PASSWORD_NAME", "jwttask"),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 
