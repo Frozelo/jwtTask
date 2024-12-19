@@ -33,5 +33,11 @@ func New(cfg *config.DatabaseConfig) (*pgxpool.Pool, error) {
 		return nil, errors.Wrap(err, "failed to ping db")
 	}
 
+	ctx = context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO users (email) VALUES ($1) ON CONFLICT DO NOTHING`, "testgmail@gmail.com"); err != nil {
+		pool.Close()
+		return nil, errors.Wrap(err, "failed to insert test user")
+	}
+
 	return pool, nil
 }
