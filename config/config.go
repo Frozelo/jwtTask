@@ -28,7 +28,7 @@ func LoadConfig() (*DatabaseConfig, *JWTConfig, error) {
 	}
 
 	dbConfig := &DatabaseConfig{
-		Host:     getEnv("POSTGRES_HOST", "db"),
+		Host:     getEnv("POSTGRES_HOST", "localhost"),
 		Port:     dbPort,
 		User:     getEnv("POSTGRES_USER", "ivansizov"),
 		Password: getEnv("POSTGRES_PASSWORD", ""),
