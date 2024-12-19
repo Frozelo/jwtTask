@@ -1,6 +1,6 @@
 # Simple JWT Token Service (MINI SSO)
 
-This project is a JWT-based token service built using **Go**, **PostgreSQL**, and Docker. The service supports issuing and refreshing JWT tokens, along with a secure implementation of refresh tokens stored in the database.
+This project is a JWT-based token service built using **Go**, **PostgreSQL**, and **Docker**. The service supports issuing and refreshing JWT tokens, along with a secure implementation of refresh tokens stored in the database.
 It`s like SSO but mini version. Working with JWT tokens and refresh tokens.
 
 ---

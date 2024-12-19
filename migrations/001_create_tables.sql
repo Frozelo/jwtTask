@@ -1,0 +1,17 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+    email TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS token_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users (id) ON DELETE CASCADE,
+    refresh_hash TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    session_id TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW (),
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE
+);
