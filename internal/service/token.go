@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"log"
 	"time"
 
 	"github.com/Frozelo/jwtTask/internal/models"
@@ -95,7 +94,7 @@ func (ts *TokenService) RefreshTokens(ctx context.Context, accessToken, refreshT
 	}
 
 	if session.IP != ip {
-		log.Println("sending message to user email")
+		return "", "", errors.New("IP address mismatch")
 	}
 
 	err = ts.tokenRepo.MarkAsUsed(ctx, session.Id)
